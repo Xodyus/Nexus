@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# C++ build output
+engine/build/
+
+# Scraped/generated data cache (regenerate via the scraper instead of committing)
+data/raw/*.json
+data/normalized/*.json
+data/scores/*.json
+
+notes.txt

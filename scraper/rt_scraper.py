@@ -1,0 +1,128 @@
+"""Rotten Tomatoes raw data scraper.
+
+Fetches a movie page from Rotten Tomatoes and extracts the JSON/attribute
+data RT ships to the browser (tomatometer, audience score, review counts,
+etc). Saves the raw payload to data/raw/<slug>.json so the rest of the
+pipeline (normalize -> score engine) can work from a local cache instead of
+re-hitting RT on every run.
+
+NOTE: this scrapes public page markup, not an official API. Rotten
+Tomatoes can and does change its HTML/JSON structure without notice - if
+extraction starts failing, the selectors below are the first place to look.
+Keep request volume low and cache aggressively (see REQUEST_DELAY_SECONDS
+and the data/raw/ cache) to be a good citizen of someone else's site.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import time
+from pathlib import Path
+from typing import Optional
+
+import requests
+from bs4 import BeautifulSoup
+
+BASE_URL = "https://www.rottentomatoes.com/m/{slug}"
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    )
+}
+DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "raw"
+REQUEST_DELAY_SECONDS = 1.5  # be polite - avoid hammering RT's servers
+
+
+class ScrapeError(RuntimeError):
+    """Raised when a movie page can't be fetched or parsed."""
+
+
+def fetch_movie_html(slug: str, session: Optional[requests.Session] = None) -> str:
+    session = session or requests.Session()
+    url = BASE_URL.format(slug=slug)
+    resp = session.get(url, headers=HEADERS, timeout=15)
+    if resp.status_code == 404:
+        raise ScrapeError(f"No movie found for slug '{slug}' ({url})")
+    resp.raise_for_status()
+    return resp.text
+
+
+def _extract_score_board(soup: BeautifulSoup) -> dict:
+    """RT renders a <score-board> custom element with the headline scores
+    as attributes. This is the primary, most stable source."""
+    board = soup.find("score-board")
+    if board is None:
+        return {}
+    keys = [
+        "tomatometerscore", "audiencescore", "tomatometerstate",
+        "audiencestate", "tomatometercount", "audiencecount",
+        "certified", "title", "rating",
+    ]
+    return {k: board.get(k) for k in keys if board.get(k) is not None}
+
+
+def _extract_next_data(soup: BeautifulSoup) -> dict:
+    """Fallback: RT's Next.js pages embed a full JSON state blob. Bulkier
+    and more likely to shift shape, but useful when score-board is absent
+    or when richer fields (cast, genre, review counts) are needed later."""
+    tag = soup.find("script", id="__NEXT_DATA__")
+    if tag is None or not tag.string:
+        return {}
+    try:
+        return json.loads(tag.string)
+    except json.JSONDecodeError:
+        return {}
+
+
+def extract_raw_data(html: str, slug: str) -> dict:
+    soup = BeautifulSoup(html, "html.parser")
+    score_board = _extract_score_board(soup)
+    next_data = _extract_next_data(soup)
+
+    if not score_board and not next_data:
+        raise ScrapeError(
+            "Could not find <score-board> or __NEXT_DATA__ on the page. "
+            "Rotten Tomatoes likely changed its markup - update the "
+            "extraction functions in rt_scraper.py."
+        )
+
+    return {
+        "slug": slug,
+        "scraped_at": time.time(),
+        "score_board": score_board,
+        "next_data": next_data,
+    }
+
+
+def save_raw(slug: str, data: dict) -> Path:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    path = DATA_DIR / f"{slug}.json"
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    return path
+
+
+def scrape(slug: str) -> Path:
+    """Fetch + extract + cache the raw data for one movie slug."""
+    html = fetch_movie_html(slug)
+    data = extract_raw_data(html, slug)
+    time.sleep(REQUEST_DELAY_SECONDS)
+    return save_raw(slug, data)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Scrape raw RT data for a movie")
+    parser.add_argument("slug", help="RT movie slug, e.g. 'dune_part_two'")
+    args = parser.parse_args()
+    try:
+        path = scrape(args.slug)
+    except ScrapeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        sys.exit(1)
+    print(f"saved raw data -> {path}")
+
+
+if __name__ == "__main__":
+    main()

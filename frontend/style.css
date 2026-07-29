@@ -1,0 +1,249 @@
+:root {
+  color-scheme: light;
+  --surface-1:      #fcfcfb;
+  --page-plane:      #f9f9f7;
+  --text-primary:   #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted:     #898781;
+  --gridline:       #e1e0d9;
+  --border:         rgba(11, 11, 11, 0.10);
+  --series-1:       #2a78d6;
+
+  --status-good:     #0ca30c;
+  --status-warning:  #fab219;
+  --status-serious:  #ec835a;
+  --status-critical: #d03b3b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --page-plane:      #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --gridline:       #2c2c2a;
+    --border:         rgba(255, 255, 255, 0.10);
+    --series-1:       #3987e5;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-1:      #1a1a19;
+  --page-plane:      #0d0d0d;
+  --text-primary:   #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted:     #898781;
+  --gridline:       #2c2c2a;
+  --border:         rgba(255, 255, 255, 0.10);
+  --series-1:       #3987e5;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--page-plane);
+  color: var(--text-primary);
+}
+
+.page {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 40px 20px 80px;
+}
+
+.page-header h1 {
+  font-size: 28px;
+  margin: 0 0 6px;
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  margin: 0 0 32px;
+  max-width: 60ch;
+}
+
+.search-row {
+  display: flex;
+  gap: 10px;
+}
+
+#slug-input {
+  flex: 1;
+  padding: 12px 14px;
+  font-size: 15px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--text-primary);
+}
+
+#slug-input:focus {
+  outline: 2px solid var(--series-1);
+  outline-offset: 1px;
+}
+
+.search-row button {
+  padding: 12px 20px;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  background: var(--series-1);
+  color: #fff;
+  cursor: pointer;
+}
+
+.search-row button:hover { filter: brightness(1.08); }
+
+.hint {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.status-line {
+  margin-top: 24px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.status-line.is-error {
+  color: var(--status-critical);
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 28px;
+}
+
+@media (max-width: 680px) {
+  .tiles { grid-template-columns: 1fr; }
+}
+
+.tile {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.tile-highlight {
+  border: 1px solid var(--series-1);
+}
+
+.tile-label {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.tile-value {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.hero-figure {
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.hero-unit {
+  font-size: 15px;
+  color: var(--text-muted);
+}
+
+.meter {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--gridline);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.meter-fill {
+  height: 100%;
+  border-radius: 4px;
+  width: 0%;
+  transition: width 0.4s ease;
+}
+
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.tile-footnote {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.explain {
+  margin-top: 24px;
+  padding: 16px 20px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.explain h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+
+.explain ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.8;
+}
+
+.explain-label {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Status band modifiers, applied via JS based on score value */
+.band-good .meter-fill, .band-good .status-swatch { background: var(--status-good); }
+.band-good .status-text { color: var(--status-good); }
+
+.band-warning .meter-fill, .band-warning .status-swatch { background: var(--status-warning); }
+.band-warning .status-text { color: var(--text-secondary); }
+
+.band-serious .meter-fill, .band-serious .status-swatch { background: var(--status-serious); }
+.band-serious .status-text { color: var(--text-secondary); }
+
+.band-critical .meter-fill, .band-critical .status-swatch { background: var(--status-critical); }
+.band-critical .status-text { color: var(--status-critical); }
