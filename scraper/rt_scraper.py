@@ -49,26 +49,41 @@ def fetch_movie_html(slug: str, session: Optional[requests.Session] = None) -> s
     resp.raise_for_status()
     return resp.text
 
-
+##
 def _extract_score_board(soup: BeautifulSoup) -> dict:
-    """RT renders a <score-board> custom element with the headline scores
-    as attributes. This is the primary, most stable source."""
-    board = soup.find("score-board")
-    if board is None:
+    """RT now ships headline scores as JSON in a
+    <script id="media-scorecard-json"> tag (the old <score-board> custom
+    element with score attributes was replaced by <media-scorecard>, which
+    no longer carries the scores itself). This is the primary, most stable
+    source."""
+    tag = soup.find("script", id="media-scorecard-json")
+    if tag is None or not tag.string:
         return {}
-    keys = [
-        "tomatometerscore", "audiencescore", "tomatometerstate",
-        "audiencestate", "tomatometercount", "audiencecount",
-        "certified", "title", "rating",
-    ]
-    return {k: board.get(k) for k in keys if board.get(k) is not None}
+    try:
+        data = json.loads(tag.string)
+    except json.JSONDecodeError:
+        return {}
 
+    critics = data.get("criticsScore") or {}
+    audience = data.get("audienceScore") or {}
+    board = {
+        "tomatometerscore": critics.get("score"),
+        "tomatometerstate": critics.get("sentiment"),
+        "tomatometercount": critics.get("reviewCount"),
+        "audiencescore": audience.get("score"),
+        "audiencestate": audience.get("sentiment"),
+        "audiencecount": audience.get("reviewCount"),
+        "certified": critics.get("certified"),
+    }
+    return {k: v for k, v in board.items() if v is not None}
 
+##
 def _extract_next_data(soup: BeautifulSoup) -> dict:
-    """Fallback: RT's Next.js pages embed a full JSON state blob. Bulkier
-    and more likely to shift shape, but useful when score-board is absent
-    or when richer fields (cast, genre, review counts) are needed later."""
-    tag = soup.find("script", id="__NEXT_DATA__")
+    """Fallback: RT embeds a schema.org Movie block as
+    <script type="application/ld+json"> (this replaced the old Next.js
+    __NEXT_DATA__ blob). Useful when score-board data is absent or when
+    richer fields (cast, genre, content rating) are needed later."""
+    tag = soup.find("script", type="application/ld+json")
     if tag is None or not tag.string:
         return {}
     try:
@@ -84,9 +99,9 @@ def extract_raw_data(html: str, slug: str) -> dict:
 
     if not score_board and not next_data:
         raise ScrapeError(
-            "Could not find <score-board> or __NEXT_DATA__ on the page. "
-            "Rotten Tomatoes likely changed its markup - update the "
-            "extraction functions in rt_scraper.py."
+            "Could not find media-scorecard-json or the ld+json Movie block "
+            "on the page. Rotten Tomatoes likely changed its markup - update "
+            "the extraction functions in rt_scraper.py."
         )
 
     return {
