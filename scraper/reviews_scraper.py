@@ -31,7 +31,8 @@ from typing import Optional
 import requests
 from bs4 import BeautifulSoup
 
-from rt_scraper import HEADERS, REQUEST_DELAY_SECONDS, ScrapeError
+from rate_limit import is_allowed
+from rt_scraper import HEADERS, ScrapeError, throttle
 
 BASE_URL = "https://www.rottentomatoes.com/m/{slug}/reviews"
 DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "raw"
@@ -53,6 +54,9 @@ LETTER_GRADES = {
 def fetch_reviews_html(slug: str, session: Optional[requests.Session] = None) -> str:
     session = session or requests.Session()
     url = BASE_URL.format(slug=slug)
+    if not is_allowed(url, HEADERS["User-Agent"]):
+        raise ScrapeError(f"robots.txt disallows fetching {url}")
+    throttle()
     resp = session.get(url, headers=HEADERS, timeout=15)
     if resp.status_code == 404:
         raise ScrapeError(f"No reviews page found for slug '{slug}' ({url})")
@@ -155,7 +159,6 @@ def scrape_reviews(slug: str) -> Path:
     """Fetch + extract + cache numeric critic scores for one movie slug."""
     html = fetch_reviews_html(slug)
     data = extract_reviews(html, slug)
-    time.sleep(REQUEST_DELAY_SECONDS)
     return save_reviews(slug, data)
 
 

@@ -10,7 +10,9 @@ NOTE: this scrapes public page markup, not an official API. Rotten
 Tomatoes can and does change its HTML/JSON structure without notice - if
 extraction starts failing, the selectors below are the first place to look.
 Keep request volume low and cache aggressively (see REQUEST_DELAY_SECONDS
-and the data/raw/ cache) to be a good citizen of someone else's site.
+and the data/raw/ cache) to be a good citizen of someone else's site. All
+requests to rottentomatoes.com (from this module and reviews_scraper.py)
+go through throttle() and a robots.txt check - see rate_limit.py.
 """
 
 from __future__ import annotations
@@ -25,6 +27,8 @@ from typing import Optional
 import requests
 from bs4 import BeautifulSoup
 
+from rate_limit import TokenBucket, is_allowed
+
 BASE_URL = "https://www.rottentomatoes.com/m/{slug}"
 HEADERS = {
     "User-Agent": (
@@ -33,16 +37,31 @@ HEADERS = {
     )
 }
 DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "raw"
-REQUEST_DELAY_SECONDS = 1.5  # be polite - avoid hammering RT's servers
+REQUEST_DELAY_SECONDS = 1.5  # minimum courtesy delay between requests
+
+# Shared by every scraper module in this package (rt_scraper.py,
+# reviews_scraper.py) - a hard cap on request rate to rottentomatoes.com
+# regardless of how many call sites end up fetching pages. Allows a small
+# burst (e.g. a movie page + its reviews page back to back) but settles to
+# one request per REQUEST_DELAY_SECONDS.
+_bucket = TokenBucket(rate=1 / REQUEST_DELAY_SECONDS, capacity=2)
 
 
 class ScrapeError(RuntimeError):
     """Raised when a movie page can't be fetched or parsed."""
 
 
+def throttle() -> None:
+    """Block until it's polite to make another request to Rotten Tomatoes."""
+    _bucket.acquire()
+
+
 def fetch_movie_html(slug: str, session: Optional[requests.Session] = None) -> str:
     session = session or requests.Session()
     url = BASE_URL.format(slug=slug)
+    if not is_allowed(url, HEADERS["User-Agent"]):
+        raise ScrapeError(f"robots.txt disallows fetching {url}")
+    throttle()
     resp = session.get(url, headers=HEADERS, timeout=15)
     if resp.status_code == 404:
         raise ScrapeError(f"No movie found for slug '{slug}' ({url})")
@@ -132,7 +151,6 @@ def scrape(slug: str) -> Path:
     """Fetch + extract + cache the raw data for one movie slug."""
     html = fetch_movie_html(slug)
     data = extract_raw_data(html, slug)
-    time.sleep(REQUEST_DELAY_SECONDS)
     return save_raw(slug, data)
 
 

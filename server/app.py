@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -31,8 +32,23 @@ FRONTEND_DIR = ROOT / "frontend"
 NORMALIZED_DIR = ROOT / "data" / "normalized"
 SCORES_DIR = ROOT / "data" / "scores"
 ENGINE_BUILD_DIR = ROOT / "engine" / "build"
+CACHE_MAX_AGE_SECONDS = 7 * 24 * 60 * 60  # re-scrape cached pages older than this
 
 app = Flask(__name__, static_folder=None)
+
+
+def _is_stale(path: Path, max_age_seconds: float) -> bool:
+    """True if `path` doesn't exist, isn't valid JSON, or its scraped_at
+    (set by rt_scraper.save_raw / reviews_scraper.save_reviews) is older
+    than max_age_seconds."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return True
+    scraped_at = data.get("scraped_at")
+    if scraped_at is None:
+        return True
+    return (time.time() - scraped_at) > max_age_seconds
 
 
 def find_engine_binary() -> Optional[Path]:
@@ -61,14 +77,17 @@ def static_files(filename):
 @app.route("/api/movie/<slug>")
 def movie_score(slug):
     raw_path = DATA_DIR / f"{slug}.json"
-    if not raw_path.exists():
+    if _is_stale(raw_path, CACHE_MAX_AGE_SECONDS):
         try:
             scrape(slug)
         except ScrapeError as exc:
-            return jsonify({"error": str(exc)}), 404
+            # A stale cache is still better than a hard failure - only 404
+            # if we have nothing at all to fall back on.
+            if not raw_path.exists():
+                return jsonify({"error": str(exc)}), 404
 
     reviews_path = DATA_DIR / f"{slug}_reviews.json"
-    if not reviews_path.exists():
+    if _is_stale(reviews_path, CACHE_MAX_AGE_SECONDS):
         try:
             scrape_reviews(slug)
         except ScrapeError:
@@ -107,6 +126,23 @@ def search():
     if not title:
         return jsonify({"error": "missing 'title' query param"}), 400
     return jsonify({"candidates": search_slug(title)})
+
+
+@app.route("/api/history")
+def history():
+    entries = []
+    if SCORES_DIR.exists():
+        paths = sorted(SCORES_DIR.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+        for path in paths:
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            entries.append({
+                "slug": data.get("slug", path.stem),
+                "realistic_score": data.get("realistic_score"),
+            })
+    return jsonify({"history": entries})
 
 
 if __name__ == "__main__":

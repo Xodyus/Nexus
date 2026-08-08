@@ -1,0 +1,26 @@
+<!--
+Synthetic fixture modeling the shape rt_scraper.py's extract_raw_data()
+parses (a media-scorecard-json script tag + an ld+json Movie block). Not
+captured from a live page - see rt_scraper.py's module docstring for why
+that can't be verified from this environment. Tests here check the parsing
+contract, not RT's actual current markup.
+-->
+<html>
+<head>
+  <script id="media-scorecard-json" type="application/json">
+  {
+    "criticsScore": {"score": 88, "sentiment": "POSITIVE", "reviewCount": 250, "certified": true},
+    "audienceScore": {"score": 91, "sentiment": "POSITIVE", "reviewCount": 5000}
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "http://schema.org",
+    "@type": "Movie",
+    "name": "Test Movie",
+    "genre": ["Drama"]
+  }
+  </script>
+</head>
+<body></body>
+</html>

@@ -32,22 +32,9 @@
 #include <cmath>
 #include <algorithm>
 
+#include "scoring.hpp"
+
 using json = nlohmann::json;
-
-namespace {
-
-constexpr double kPrior = 60.0;        // "average movie" baseline out of 100
-constexpr double kPriorWeight = 20.0;  // treat the prior as ~20 reviews of skepticism
-constexpr double kMaxControversyPenalty = 15.0;
-
-// Pulls rawScore toward kPrior when `count` (review volume) is small, and
-// trusts rawScore more as count grows.
-double Shrink(double rawScore, double count) {
-    if (count + kPriorWeight <= 0.0) return kPrior;
-    return (rawScore * count + kPrior * kPriorWeight) / (count + kPriorWeight);
-}
-
-}  // namespace
 
 int main(int argc, char** argv) {
     if (argc != 3) {
@@ -75,11 +62,9 @@ int main(int argc, char** argv) {
     const double criticCount = input.value("critic_review_count", 0.0);
     const double audienceCount = input.value("audience_review_count", 0.0);
 
-    const double stableCritic = Shrink(averageCriticScore, criticCount);
-    const double stableAudience = Shrink(audienceScore, audienceCount);
-
-    const double gap = std::abs(stableCritic - stableAudience);
-    const double controversyPenalty = std::min(gap * 0.25, kMaxControversyPenalty);
+    const double stableCritic = scoring::Shrink(averageCriticScore, criticCount);
+    const double stableAudience = scoring::Shrink(audienceScore, audienceCount);
+    const double controversyPenalty = scoring::ControversyPenalty(stableCritic, stableAudience);
 
     double realistic = (stableCritic * 0.5 + stableAudience * 0.5) - controversyPenalty;
     realistic = std::clamp(realistic, 0.0, 100.0);

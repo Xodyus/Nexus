@@ -14,3 +14,7 @@ FetchContent_MakeAvailable(json)
 
 add_executable(score_engine src/score_engine.cpp)
 target_link_libraries(score_engine PRIVATE nlohmann_json::nlohmann_json)
+
+enable_testing()
+add_executable(score_engine_tests tests/test_score_engine.cpp)
+add_test(NAME score_engine_tests COMMAND score_engine_tests)

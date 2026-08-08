@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div class="layout">
   <main class="page">
     <header class="page-header">
       <h1>Realistic Score</h1>
@@ -64,7 +65,38 @@
         <li><span class="explain-label">Stabilized audience score:</span> <span id="explain-stable-audience"></span></li>
       </ul>
     </section>
+
+    <section id="compare" class="compare" hidden>
+      <h3>Compare with another movie</h3>
+      <form id="compare-form" class="search-row">
+        <input
+          id="compare-input"
+          type="text"
+          placeholder="Another title or slug"
+          autocomplete="off"
+        />
+        <button type="submit">Compare</button>
+      </form>
+      <ul id="compare-candidates" class="candidates" hidden></ul>
+      <p id="compare-status" class="hint" hidden></p>
+      <table id="compare-table" class="compare-table" hidden>
+        <thead>
+          <tr><th></th><th id="compare-col-current"></th><th id="compare-col-other"></th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Tomatometer</td><td id="compare-tomato-current"></td><td id="compare-tomato-other"></td></tr>
+          <tr><td>Audience Score</td><td id="compare-audience-current"></td><td id="compare-audience-other"></td></tr>
+          <tr><td>Realistic Score</td><td id="compare-realistic-current"></td><td id="compare-realistic-other"></td></tr>
+        </tbody>
+      </table>
+    </section>
   </main>
+
+  <aside class="history-panel">
+    <h3>Recently scored</h3>
+    <ul id="history-list" class="history-list"></ul>
+  </aside>
+  </div>
 
   <script src="app.js"></script>
 </body>
