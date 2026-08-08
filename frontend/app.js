@@ -3,6 +3,7 @@ const input = document.getElementById("slug-input");
 const statusLine = document.getElementById("status-line");
 const results = document.getElementById("results");
 const explain = document.getElementById("explain");
+const candidatesList = document.getElementById("candidates");
 
 function bandFor(score) {
   if (score >= 75) return { band: "good", text: "Good" };
@@ -28,6 +29,59 @@ function showStatus(message, isError) {
   statusLine.hidden = false;
   statusLine.textContent = message;
   statusLine.classList.toggle("is-error", Boolean(isError));
+}
+
+function showCandidates(candidates) {
+  candidatesList.innerHTML = "";
+  if (!candidates.length) {
+    candidatesList.hidden = true;
+    return;
+  }
+  for (const candidate of candidates) {
+    const item = document.createElement("li");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = candidate.year
+      ? `${candidate.title} (${candidate.year})`
+      : candidate.title;
+    button.addEventListener("click", () => {
+      candidatesList.hidden = true;
+      loadMovie(candidate.slug);
+    });
+    item.appendChild(button);
+    candidatesList.appendChild(item);
+  }
+  candidatesList.hidden = false;
+}
+
+async function searchTitle(title) {
+  results.hidden = true;
+  explain.hidden = true;
+  candidatesList.hidden = true;
+  showStatus(`Searching for "${title}"...`);
+
+  let response;
+  try {
+    response = await fetch(`/api/search?title=${encodeURIComponent(title)}`);
+  } catch (err) {
+    showStatus(`Network error: ${err.message}`, true);
+    return;
+  }
+
+  const data = await response.json();
+  if (!response.ok) {
+    showStatus(data.error || "Something went wrong.", true);
+    return;
+  }
+
+  const candidates = data.candidates || [];
+  if (candidates.length === 1) {
+    loadMovie(candidates[0].slug);
+    return;
+  }
+
+  statusLine.hidden = true;
+  showCandidates(candidates);
 }
 
 async function loadMovie(slug) {
@@ -68,7 +122,7 @@ async function loadMovie(slug) {
   );
 
   document.getElementById("explain-penalty").textContent = data.controversy_penalty.toFixed(1);
-  document.getElementById("explain-stable-tomato").textContent = data.stabilized.tomatometer.toFixed(1);
+  document.getElementById("explain-stable-tomato").textContent = data.stabilized.critic.toFixed(1);
   document.getElementById("explain-stable-audience").textContent = data.stabilized.audience.toFixed(1);
 
   results.hidden = false;
@@ -77,6 +131,6 @@ async function loadMovie(slug) {
 
 form.addEventListener("submit", (event) => {
   event.preventDefault();
-  const slug = input.value.trim();
-  if (slug) loadMovie(slug);
+  const value = input.value.trim();
+  if (value) searchTitle(value);
 });

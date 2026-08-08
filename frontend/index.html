@@ -17,14 +17,16 @@
       <input
         id="slug-input"
         type="text"
-        placeholder="RT movie slug, e.g. dune_part_two"
+        placeholder="Movie title or RT slug, e.g. Dune Part Two"
         autocomplete="off"
       />
-      <button type="submit">Get score</button>
+      <button type="submit">Search</button>
     </form>
     <p class="hint">
-      Find the slug in a Rotten Tomatoes URL: rottentomatoes.com/m/<strong>&lt;slug&gt;</strong>
+      Type a title, or a slug straight from a Rotten Tomatoes URL: rottentomatoes.com/m/<strong>&lt;slug&gt;</strong>
     </p>
+
+    <ul id="candidates" class="candidates" hidden></ul>
 
     <section id="status-line" class="status-line" hidden></section>
 
@@ -58,7 +60,7 @@
       <h3>How this was calculated</h3>
       <ul>
         <li><span class="explain-label">Controversy penalty:</span> <span id="explain-penalty"></span> pts (deducted for critic/audience disagreement)</li>
-        <li><span class="explain-label">Stabilized tomatometer:</span> <span id="explain-stable-tomato"></span> (shrunk toward the baseline if review count is low)</li>
+        <li><span class="explain-label">Stabilized critic score:</span> <span id="explain-stable-tomato"></span> (average of critics' own numeric scores where available, shrunk toward the baseline if review count is low)</li>
         <li><span class="explain-label">Stabilized audience score:</span> <span id="explain-stable-audience"></span></li>
       </ul>
     </section>

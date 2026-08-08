@@ -104,6 +104,15 @@ def extract_raw_data(html: str, slug: str) -> dict:
             "the extraction functions in rt_scraper.py."
         )
 
+    for count_key in ("tomatometercount", "audiencecount"):
+        if score_board.get(count_key, 0) == 0:
+            print(
+                f"warning: '{slug}' has a 0 (or missing) {count_key} - the "
+                "shrinkage math in score_engine.cpp will silently fall back "
+                "to the prior for this score",
+                file=sys.stderr,
+            )
+
     return {
         "slug": slug,
         "scraped_at": time.time(),

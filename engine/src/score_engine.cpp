@@ -16,8 +16,15 @@
 // Usage: score_engine <input.json> <output.json>
 //
 // Input schema (produced by scraper/normalize.py):
-//   { "slug": str, "tomatometer_score": number, "audience_score": number,
-//     "critic_review_count": number, "audience_review_count": number }
+//   { "slug": str, "tomatometer_score": number, "average_critic_score": number,
+//     "audience_score": number, "critic_review_count": number,
+//     "audience_review_count": number }
+//
+// average_critic_score is the mean of critics' own numeric scores (see
+// scraper/reviews_scraper.py) rather than RT's binary fresh/rotten percentage
+// - it's what actually gets shrunk and blended below. It falls back to
+// tomatometer_score in normalize.py when no reviews had an explicit score,
+// so this engine doesn't need to know the difference.
 
 #include <nlohmann/json.hpp>
 #include <fstream>
@@ -63,29 +70,31 @@ int main(int argc, char** argv) {
     }
 
     const double tomatometer = input.value("tomatometer_score", 0.0);
+    const double averageCriticScore = input.value("average_critic_score", tomatometer);
     const double audienceScore = input.value("audience_score", 0.0);
     const double criticCount = input.value("critic_review_count", 0.0);
     const double audienceCount = input.value("audience_review_count", 0.0);
 
-    const double stableTomatometer = Shrink(tomatometer, criticCount);
+    const double stableCritic = Shrink(averageCriticScore, criticCount);
     const double stableAudience = Shrink(audienceScore, audienceCount);
 
-    const double gap = std::abs(stableTomatometer - stableAudience);
+    const double gap = std::abs(stableCritic - stableAudience);
     const double controversyPenalty = std::min(gap * 0.25, kMaxControversyPenalty);
 
-    double realistic = (stableTomatometer * 0.5 + stableAudience * 0.5) - controversyPenalty;
+    double realistic = (stableCritic * 0.5 + stableAudience * 0.5) - controversyPenalty;
     realistic = std::clamp(realistic, 0.0, 100.0);
 
     json output;
     output["slug"] = input.value("slug", "");
     output["inputs"] = {
         {"tomatometer_score", tomatometer},
+        {"average_critic_score", averageCriticScore},
         {"audience_score", audienceScore},
         {"critic_review_count", criticCount},
         {"audience_review_count", audienceCount},
     };
     output["stabilized"] = {
-        {"tomatometer", stableTomatometer},
+        {"critic", stableCritic},
         {"audience", stableAudience},
     };
     output["controversy_penalty"] = controversyPenalty;

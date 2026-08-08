@@ -17,13 +17,15 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scraper"))
 
 from rt_scraper import scrape, ScrapeError, DATA_DIR  # noqa: E402
+from reviews_scraper import scrape_reviews  # noqa: E402
 from normalize import normalize_file  # noqa: E402
+from search import search_slug  # noqa: E402
 
 FRONTEND_DIR = ROOT / "frontend"
 NORMALIZED_DIR = ROOT / "data" / "normalized"
@@ -65,6 +67,16 @@ def movie_score(slug):
         except ScrapeError as exc:
             return jsonify({"error": str(exc)}), 404
 
+    reviews_path = DATA_DIR / f"{slug}_reviews.json"
+    if not reviews_path.exists():
+        try:
+            scrape_reviews(slug)
+        except ScrapeError:
+            # Numeric critic scores are a nice-to-have, not required - the
+            # realistic score just falls back to the raw tomatometer
+            # (see normalize.py) if this page can't be scraped.
+            pass
+
     normalized = normalize_file(raw_path)
     NORMALIZED_DIR.mkdir(parents=True, exist_ok=True)
     SCORES_DIR.mkdir(parents=True, exist_ok=True)
@@ -87,6 +99,14 @@ def movie_score(slug):
         return jsonify({"error": "score engine failed", "detail": result.stderr}), 500
 
     return jsonify(json.loads(score_path.read_text(encoding="utf-8")))
+
+
+@app.route("/api/search")
+def search():
+    title = request.args.get("title", "").strip()
+    if not title:
+        return jsonify({"error": "missing 'title' query param"}), 400
+    return jsonify({"candidates": search_slug(title)})
 
 
 if __name__ == "__main__":
